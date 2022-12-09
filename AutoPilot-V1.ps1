@@ -43,7 +43,7 @@ Function Add-AutopilotImportedDevice() {
 	Write-Host -f Magenta "Graph POST $Uri // Serial:($1) | ($2)" #`n$json
 
 	try {
-		Invoke-RestMethod -Url $Uri Post -Content $json -Headers $authHeaders
+		Invoke-RestMethod -Uri $Uri Post -Content $json -Headers $authHeaders
 	}
 	catch {
 		Write-Error $_.Exception 
@@ -68,7 +68,7 @@ Function Get-AutopilotImportedDevice() {
 	Write-Host -f Magenta "Graph GET $Uri"
 	
 	try {
-		$response = Invoke-RestMethod -Url $uri -Headers $authHeaders
+		$response = Invoke-RestMethod -Uri $uri -Headers $authHeaders
 		if ($id) {
 			$response
 		}
@@ -78,7 +78,7 @@ Function Get-AutopilotImportedDevice() {
 			$devicesNextLink = $response."@odata.nextLink"
 		
 			while ($null -ne $devicesNextLink) {
-				$devicesResponse = (Invoke-RestMethod -Url $devicesNextLink -Headers $authHeaders)
+				$devicesResponse = (Invoke-RestMethod -Uri $devicesNextLink -Headers $authHeaders)
 				$devicesNextLink = $devicesResponse."@odata.nextLink"
 				$devices += $devicesResponse.value
 			}
