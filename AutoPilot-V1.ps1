@@ -212,9 +212,12 @@ $global:Graph = "https://graph.microsoft.com"
 #Get Available Drives and setup directories
 $DeployFolder = "C:\ProgramData\Deploy\AutoPilot"
 $ExportFolder = @("C:\HWID")
+New-Item -Type Directory -Path "$DeployFolder" -Force | Out-Null
 
+Write-Host -f Yellow "Get-DeviceHardwareInformation."
 $DevInfo = Get-DeviceHardwareInformation
 
+Write-Host -f Yellow "Get-DeviceHardwareInformation."
 $DiskDrives = Get-LocalDiskDrives -DriveType "Removable"
 
 foreach ($Drive in $DiskDrives) {
@@ -222,6 +225,7 @@ foreach ($Drive in $DiskDrives) {
 }
 foreach ($Folder in $ExportFolder) {
 	New-Item -Type Directory -Path "$Folder" -Force | Out-Null
+	Write-Host -f Cyan "Export hardware information to: $Folder\AutopilotHWID.csv"
 	$DevInfo | Export-Csv "$Folder\AutopilotHWID.csv" -NoTypeInformation
 }
 
@@ -234,8 +238,6 @@ $ContinueScript = Read-Host "Type 'Yes' continue with the script and upload the 
 #Connect to Intune and upload Autopilot hardware details
 $ConnectToIntune = [bool]($ContinueScript -ieq "Yes")
 if ($ConnectToIntune) {
-
-	New-Item -Type Directory -Path "$DeployFolder" -Force | Out-Null
 
 	$ModuleInfo = SetupModules -Resources @("JwtDetails", "MSAL.PS")
 
