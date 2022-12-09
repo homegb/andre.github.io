@@ -207,6 +207,8 @@ function SetupModules($Resources) {
 	return $ModuleData
 }
 
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 $global:GithubMain = "https://raw.githubusercontent.com/homegb/andre.github.io/main"
 $global:Graph = "https://graph.microsoft.com"
 
