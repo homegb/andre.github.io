@@ -209,6 +209,9 @@ function SetupModules($Resources) {
 	return $ModuleData
 }
 
+Clear-Host
+Write-Host -f Green "Starting AutoPilot script V1 - https://andre.github.io"
+
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Force
