@@ -276,6 +276,8 @@ if ($ConnectToIntune) {
 
 			if ($ConnectToIntune) {
 
+				$Assign = $true
+
 				$Computers | ForEach-Object {
 					$imported += Add-AutopilotImportedDevice -serialNumber $_.'Device Serial Number' -hardwareIdentifier $_.'Hardware Hash' -groupTag $_.'Group Tag' -assignedUser $_.'Assigned User'
 				}
@@ -376,6 +378,11 @@ if ($ConnectToIntune) {
 					$assignSeconds = [Math]::Ceiling($assignDuration.TotalSeconds)
 					Write-Host "Profiles assigned to all devices. Elapsed time to complete assignment: $assignSeconds seconds"    
 					if ($Reboot) {
+
+						Write-Host -f Green "Your computer will be restarted soon."
+
+						Start-Sleep 15
+
 						Restart-Computer -Force
 					}
 				}
