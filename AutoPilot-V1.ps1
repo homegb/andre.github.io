@@ -209,6 +209,8 @@ function SetupModules($Resources) {
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Force
+
 $global:GithubMain = "https://raw.githubusercontent.com/homegb/andre.github.io/main"
 $global:Graph = "https://graph.microsoft.com"
 
@@ -386,6 +388,9 @@ if ($ConnectToIntune) {
 					$assignDuration = (Get-Date) - $assignStart
 					$assignSeconds = [Math]::Ceiling($assignDuration.TotalSeconds)
 					Write-Host "Profiles assigned to all devices. Elapsed time to complete assignment: $assignSeconds seconds"    
+
+					Set-ExecutionPolicy -ExecutionPolicy Default -Force
+
 					if ($Reboot) {
 
 						Write-Host -f Green "Your computer will be restarted soon."
@@ -405,3 +410,6 @@ if ($ConnectToIntune) {
 		Write-Host -f Red "Hardware information can't be uploaded - information is still stored locally only."
 	}
 }
+
+
+Set-ExecutionPolicy -ExecutionPolicy Default -Force
