@@ -220,7 +220,7 @@ New-Item -Type Directory -Path "$DeployFolder" -Force | Out-Null
 Write-Host -f Yellow "Get-DeviceHardwareInformation."
 $DevInfo = Get-DeviceHardwareInformation
 
-Write-Host -f Yellow "Get-DeviceHardwareInformation."
+Write-Host -f White "Get-LocalDiskDrives."
 $DiskDrives = Get-LocalDiskDrives -DriveType "Removable"
 
 foreach ($Drive in $DiskDrives) {
@@ -242,6 +242,7 @@ $ContinueScript = Read-Host "Type 'Yes' continue with the script and upload the 
 $ConnectToIntune = [bool]($ContinueScript -ieq "Yes")
 if ($ConnectToIntune) {
 
+	Write-Host -f White "Setup Intune Modules."
 	$ModuleInfo = SetupModules -Resources @("JwtDetails", "MSAL.PS")
 
 	if ($ModuleInfo.Success) {
@@ -250,6 +251,7 @@ if ($ConnectToIntune) {
 		$AccessTokenExpired = (-not $MsApi.ExpiresOn) -or ( [bool]$MsApi.ExpiresOn.LocalDateTime -and ($MsApi.ExpiresOn.LocalDateTime -lt (Get-Date).ToLocalTime()) )
 
 		if ($AccessTokenExpired) {
+			Write-Host -f Cyan "Connect to Intune."
 			$global:MsApi = Get-MsalToken -ClientId "d1ddf0e4-d672-4dae-b554-9d5bdfd93547" -TenantId "common" -RedirectUri "urn:ietf:wg:oauth:2.0:oob" -Interactive -Scopes $GraphScopes
 		}
 
@@ -283,12 +285,14 @@ if ($ConnectToIntune) {
 
 				$Assign = $true
 
+				Write-Host -f White "Add Device to AutoPilot."
+
 				$Computers | ForEach-Object {
 					$imported += Add-AutopilotImportedDevice -serialNumber $_.'Device Serial Number' -hardwareIdentifier $_.'Hardware Hash' -groupTag $_.'Group Tag' -assignedUser $_.'Assigned User'
 				}
 	
 
-				# Wait until the devices have been imported
+				Write-Host -f White "Wait until the devices have been imported."
 				$processingCount = 1
 				while ($processingCount -gt 0) {
 					$current = @()
