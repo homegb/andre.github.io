@@ -43,7 +43,7 @@ Function Add-AutopilotImportedDevice() {
 	Write-Host -f Magenta "Graph POST $Uri // Serial:($1) | ($2)" #`n$json
 
 	try {
-		Invoke-RestMethod -Uri $Uri Post -Content $json -Headers $authHeaders
+		Invoke-RestMethod -Uri $Uri -Method POST -Content $json -Headers $authHeaders
 	}
 	catch {
 		Write-Error $_.Exception 
@@ -108,7 +108,7 @@ function Sync-AutoPilotService() {
 function Update-AutoPilotDevice($deviceId, $User, $GroupTag, $DeviceName) {
 
 	try {
-		Invoke-RestMethod -Uri "$Graph/beta/deviceManagement/windowsAutopilotDeviceIdentities/$deviceId/UpdateDeviceProperties" -POST -Headers $authHeaders -ContentType "application/json" `
+		Invoke-RestMethod -Uri "$Graph/beta/deviceManagement/windowsAutopilotDeviceIdentities/$deviceId/UpdateDeviceProperties" -Method POST -Headers $authHeaders -ContentType "application/json" `
 			-Body @"
 {
 	"userPrincipalName": "$($User.userPrincipalName)",
