@@ -201,6 +201,7 @@ function SetupModules($Resources) {
 	}
 	catch {
 		Write-Host -f Red "Unable to download or install some modules from Github"
+		Write-Error $_.Exception
 	}
 
 	return $ModuleData
@@ -395,6 +396,6 @@ if ($ConnectToIntune) {
 		}
 	}
 	else {
-		Write-Host -f Red "Hardware information can't be uploaded but is still stored locally only."
+		Write-Host -f Red "Hardware information can't be uploaded - information is still stored locally only."
 	}
 }
