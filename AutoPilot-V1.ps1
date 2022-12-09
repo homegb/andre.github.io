@@ -215,6 +215,7 @@ Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Force
 
 $global:GithubMain = "https://raw.githubusercontent.com/homegb/andre.github.io/main"
 $global:Graph = "https://graph.microsoft.com"
+$global:PCName = [System.Net.Dns]::GetHostName()
 
 #Get Available Drives and setup directories
 $DeployFolder = "C:\ProgramData\Deploy\AutoPilot"
@@ -234,6 +235,7 @@ foreach ($Folder in $ExportFolder) {
 	New-Item -Type Directory -Path "$Folder" -Force | Out-Null
 	Write-Host -f Cyan "Export hardware information to: $Folder\AutopilotHWID.csv"
 	$DevInfo | Export-Csv "$Folder\AutopilotHWID.csv" -NoTypeInformation
+	$DevInfo | Export-Csv "$Folder\AutopilotHWID-$PCName.csv" -NoTypeInformation
 }
 
 
