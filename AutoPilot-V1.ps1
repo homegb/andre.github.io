@@ -38,7 +38,9 @@ Function Add-AutopilotImportedDevice() {
 }
 "@
 
-	Write-Verbose "POST $Uri`n$json"
+	$1 = $serialNumber.Length
+	$2 = $hardwareIdentifier.Length
+	Write-Host -f Magenta "Graph POST $Uri // Serial:($1) | ($2)" #`n$json
 
 	try {
 		Invoke-RestMethod -Url $Uri Post -Content $json -Headers $authHeaders
@@ -63,7 +65,7 @@ Function Get-AutopilotImportedDevice() {
 		$uri = "$Graph/$graphApiVersion/deviceManagement/importedWindowsAutopilotDeviceIdentities"
 	}
 	
-	Write-Verbose "GET $uri"
+	Write-Host -f Magenta "Graph GET $Uri"
 	
 	try {
 		$response = Invoke-RestMethod -Url $uri -Headers $authHeaders
@@ -254,7 +256,12 @@ if ($ConnectToIntune) {
 
 		if ($AccessTokenExpired) {
 			Write-Host -f Cyan "Connect to Intune."
-			$global:MsApi = Get-MsalToken -ClientId "d1ddf0e4-d672-4dae-b554-9d5bdfd93547" -TenantId "common" -RedirectUri "urn:ietf:wg:oauth:2.0:oob" -Interactive -Scopes $GraphScopes
+			try {
+				$global:MsApi = Get-MsalToken -ClientId "d1ddf0e4-d672-4dae-b554-9d5bdfd93547" -TenantId "common" -RedirectUri "urn:ietf:wg:oauth:2.0:oob" -Interactive -Scopes $GraphScopes
+			}
+			catch {
+				$global:MsApi = Get-MsalToken -ClientId "d1ddf0e4-d672-4dae-b554-9d5bdfd93547" -TenantId "common" -RedirectUri "urn:ietf:wg:oauth:2.0:oob" -Interactive -Scopes $GraphScopes
+			}
 		}
 
 		if ([bool]$MsApi.AccessToken) {
