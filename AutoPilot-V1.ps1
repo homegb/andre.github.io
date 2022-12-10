@@ -6,6 +6,34 @@ function Convert-Bytes-ToGB($Value) {
 	return [Math]::Round($value, $DecimalPlaces, [MidPointRounding]::AwayFromZero)
 }
 
+function DateTimeString() {
+	$Date = (Get-Date).ToLocalTime().ToString()
+	return ([datetime]$Date).ToString("yyyy-MM-dd HH:mm:ss")
+}
+
+function ReturnElapsed() {
+	return [string]($StopWatch.Elapsed -split "\." | Select-Object -First 1)
+}
+
+function RebootComputer($Reboot, $Ask) {
+    
+	if ($Ask) {
+		#ClearPowershellHost
+
+		$ConfirmReboot = Read-Host "Type 'Yes' to reboot the machine"
+	}
+
+	if ($Reboot) {
+
+		Write-Host -f Green "Your computer will be restarted soon."
+
+		Start-Sleep 15
+
+		Restart-Computer -Force
+	}
+
+}
+
 Function Add-AutopilotImportedDevice() {
 	[cmdletbinding()]
 	param
@@ -37,12 +65,12 @@ Function Add-AutopilotImportedDevice() {
 }
 "@
 
-	$1 = $serialNumber.Length
-	$2 = $hardwareIdentifier.Length
-	Write-Host -f Magenta "Graph POST $Uri // Serial:($1) | ($2)`n$json"
+	#$1 = $serialNumber.Length
+	#$2 = $hardwareIdentifier.Length
+	#Write-Host -f Magenta "Graph POST $Uri // Serial:($1) | ($2)`n$json"
 
 	try {
-		Invoke-RestMethod -Uri $Uri -Method POST -Headers $authHeaders -ContentType "application/json" -Content $json
+		Invoke-RestMethod -Uri $Uri -Method POST -Headers $authHeaders -ContentType "application/json" -Body $json
 	}
 	catch {
 		Write-Error $_.Exception 
@@ -67,7 +95,9 @@ Function Get-AutopilotImportedDevice() {
 	Write-Host -f Magenta "Graph GET $Uri"
 	
 	try {
+		Start-Sleep -Milliseconds 200		
 		$response = Invoke-RestMethod -Uri $uri -Headers $authHeaders
+		
 		if ($id) {
 			$response
 		}
@@ -77,6 +107,7 @@ Function Get-AutopilotImportedDevice() {
 			$devicesNextLink = $response."@odata.nextLink"
 		
 			while ($null -ne $devicesNextLink) {
+				Start-Sleep -Milliseconds 200
 				$devicesResponse = (Invoke-RestMethod -Uri $devicesNextLink -Headers $authHeaders)
 				$devicesNextLink = $devicesResponse."@odata.nextLink"
 				$devices += $devicesResponse.value
@@ -89,6 +120,20 @@ Function Get-AutopilotImportedDevice() {
 		break
 	}
 	
+}
+
+
+function Get-AutoPilotDeviceBySerial($SerialNumber) {
+
+	try {
+		Start-Sleep -Milliseconds 200
+		$Response = Invoke-RestMethod -Uri "$Graph/beta/deviceManagement/windowsAutopilotDeviceIdentities?`$filter=contains(serialNumber, '$SerialNumber')" -Method GET -Headers $authHeaders
+		$Response.value
+	}
+	catch {
+		Write-Error $_.Exception 
+		break
+	}
 }
 
 function Sync-AutoPilotService() {
@@ -208,12 +253,27 @@ function SetupModules($Resources) {
 	return $ModuleData
 }
 
-Clear-Host
-Write-Host -f Green "Starting AutoPilot script V1 - https://andre.github.io"
+function Set-ExecutionPolicySetting($Policy) {
+	try {
+		Set-ExecutionPolicy -ExecutionPolicy $Policy -Force -EA SilentlyContinue
+	}
+	catch {
+	}
+}
+
+function ClearPowershellHost() {
+    Clear-Host
+    Write-Host -f Green "[$(DateTimeString)] AutoPilot script V1 - https://andre.github.io`n"
+}
+
+$ErrorActionPreference = "Stop"
+ClearPowershellHost
+
+$global:StopWatch = [system.diagnostics.stopwatch]::StartNew()
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Force
+Set-ExecutionPolicySetting -Policy "Unrestricted"
 
 $global:GithubMain = "https://raw.githubusercontent.com/homegb/andre.github.io/main"
 $global:Graph = "https://graph.microsoft.com"
@@ -224,10 +284,10 @@ $DeployFolder = "C:\ProgramData\Deploy\AutoPilot"
 $ExportFolder = @("C:\HWID")
 New-Item -Type Directory -Path "$DeployFolder" -Force | Out-Null
 
-Write-Host -f Yellow "Get-DeviceHardwareInformation."
+Write-Host -f Yellow "[$(ReturnElapsed)] Get-DeviceHardwareInformation."
 $DevInfo = Get-DeviceHardwareInformation
 
-Write-Host -f White "Get-LocalDiskDrives."
+Write-Host -f White "[$(ReturnElapsed)] Get-LocalDiskDrives."
 $DiskDrives = Get-LocalDiskDrives -DriveType "Removable"
 
 foreach ($Drive in $DiskDrives) {
@@ -235,7 +295,7 @@ foreach ($Drive in $DiskDrives) {
 }
 foreach ($Folder in $ExportFolder) {
 	New-Item -Type Directory -Path "$Folder" -Force | Out-Null
-	Write-Host -f Cyan "Export hardware information to: $Folder\AutopilotHWID.csv"
+	Write-Host -f Cyan "[$(ReturnElapsed)] Export hardware information to: $Folder\AutopilotHWID.csv"
 	$DevInfo | Export-Csv "$Folder\AutopilotHWID.csv" -NoTypeInformation
 	$DevInfo | Export-Csv "$Folder\AutopilotHWID-$PCName.csv" -NoTypeInformation
 }
@@ -243,14 +303,14 @@ foreach ($Folder in $ExportFolder) {
 
 
 # ========== Connect to Intune and upload AutoPilot data ========= #
-Write-Host -f Yellow "See prompt below:"
+Write-Host -f Yellow "[$(ReturnElapsed)] See prompt below:"
 $ContinueScript = Read-Host "Type 'Yes' continue with the script and upload the device data to Intune AutoPilot"
 
 #Connect to Intune and upload Autopilot hardware details
 $ConnectToIntune = [bool]($ContinueScript -ieq "Yes")
 if ($ConnectToIntune) {
 
-	Write-Host -f White "Setup Intune Modules."
+	Write-Host -f White "[$(ReturnElapsed)] Setup Intune Modules."
 	$ModuleInfo = SetupModules -Resources @("JwtDetails", "MSAL.PS")
 
 	if ($ModuleInfo.Success) {
@@ -259,7 +319,7 @@ if ($ConnectToIntune) {
 		$AccessTokenExpired = (-not $MsApi.ExpiresOn) -or ( [bool]$MsApi.ExpiresOn.LocalDateTime -and ($MsApi.ExpiresOn.LocalDateTime -lt (Get-Date).ToLocalTime()) )
 
 		if ($AccessTokenExpired) {
-			Write-Host -f Cyan "Connect to Intune."
+			Write-Host -f Cyan "[$(ReturnElapsed)] Connecting to Intune."
 			try {
 				$global:MsApi = Get-MsalToken -ClientId "d1ddf0e4-d672-4dae-b554-9d5bdfd93547" -TenantId "common" -RedirectUri "urn:ietf:wg:oauth:2.0:oob" -Interactive -Scopes $GraphScopes
 			}
@@ -278,149 +338,122 @@ if ($ConnectToIntune) {
 			$Org = Invoke-RestMethod -Uri "$Graph/v1.0/organization" -Method Get -Headers $authHeaders
 			$OrgName = $Org.value.displayName
 
-			#Clear-Host
+			#ClearPowershellHost
 			if ($AccessTokenExpired -eq $false) {
-				Write-Host -f Yellow "Connected to Intune." -NoNewline; #Write-Host -f Green "$OrgName // $($MsApi.Account.Username) // [$($TokenDetails.ipaddr)] " -NoNewline; Write-Host -f Yellow "until ($($MsApi.ExpiresOn.LocalDateTime))"
+				ClearPowershellHost
+				Write-Host -f Green "[$(ReturnElapsed)] Connected to Intune." -NoNewline; #Write-Host -f Green "$OrgName // $($MsApi.Account.Username) // [$($TokenDetails.ipaddr)] " -NoNewline; Write-Host -f Yellow "until ($($MsApi.ExpiresOn.LocalDateTime))"
 
 				$ConnectionInfo = [PSCustomObject]@{ 'Azure-Tenant-Name' = $OrgName; Username = $MsApi.Account.Username; IpAddress = $TokenDetails.ipaddr; 'Session-Valid-Until' = $MsApi.ExpiresOn.LocalDateTime; 'Time-To-Expiry' = $TokenDetails.timeToExpiry }
 				$ConnectionInfo | Format-Table
-			}
+				Write-Host "-----------------------------------------------"
 
-			$Computers = @()
-			$Computers += $DevInfo
-			$importStart = Get-Date
-			$imported = @()
-			if ($OutputFile.Length -gt 3) {
-				if (Test-Path $OutputFile) { $Computers += Import-CSV -Path $OutputFile }
-			}
+				$Computers = @()
+				$Computers += $DevInfo
+				$importStart = Get-Date
+				$NewAutoPilotDevices = @()
+				if ($OutputFile.Length -gt 3) {
+					if (Test-Path $OutputFile) { $Computers += Import-CSV -Path $OutputFile }
+				}
 
-			if ($ConnectToIntune) {
 
-				$Assign = $true
-
-				Write-Host -f White "Add Device to AutoPilot."
-
-				$Computers | ForEach-Object {
-					$imported += Add-AutopilotImportedDevice -serialNumber $_.'Device Serial Number' -hardwareIdentifier $_.'Hardware Hash' -groupTag $_.'Group Tag' -assignedUser $_.'Assigned User'
+				foreach ($Comp in $Computers) {
+					Write-Host -f White "[$(ReturnElapsed)] Add Device to AutoPilot: [$($Comp.'Device Serial Number') - $($env:COMPUTERNAME)]"
+					$NewAutoPilotDevices += Add-AutopilotImportedDevice -serialNumber $Comp.'Device Serial Number' -hardwareIdentifier $Comp.'Hardware Hash' -groupTag $Comp.'Group Tag' -assignedUser $Comp.'Assigned User'
 				}
 	
 
-				Write-Host -f White "Wait until the devices have been imported."
-				$processingCount = 1
-				while ($processingCount -gt 0) {
-					$current = @()
-					$processingCount = 0
-					$imported | ForEach-Object {
-						$device = Get-AutopilotImportedDevice -id $_.id
-						if ($device.state.deviceImportStatus -eq "unknown") {
-							$processingCount = $processingCount + 1
-						}
-						$current += $device
-					}
-					$deviceCount = $imported.Length
-					Write-Host "Waiting for $processingCount of $deviceCount to be imported"
-					if ($processingCount -gt 0) {
-						Start-Sleep 30
-					}
-				}
-				$importDuration = (Get-Date) - $importStart
-				$importSeconds = [Math]::Ceiling($importDuration.TotalSeconds)
-				Write-Host "All devices imported. Elapsed time to complete import: $importSeconds seconds"
-        
-				# Wait until the devices can be found in Intune (should sync automatically)
-				$syncStart = Get-Date
-				$processingCount = 1
-				while ($processingCount -gt 0) {
-					$autopilotDevices = @()
-					$processingCount = 0
-					$current | ForEach-Object {
-						$device = Get-AutopilotDevice -id $_.state.deviceRegistrationId
-						if (-not $device) {
-							$processingCount = $processingCount + 1
-						}
-						$autopilotDevices += $device                    
-					}
-					$deviceCount = $autopilotDevices.Length
-					Write-Host "Waiting for $processingCount of $deviceCount to be synced"
-					if ($processingCount -gt 0) {
-						Start-Sleep 30
-					}
-				}
-				$syncDuration = (Get-Date) - $syncStart
-				$syncSeconds = [Math]::Ceiling($syncDuration.TotalSeconds)
-				Write-Host "All devices synced. Elapsed time to complete sync: $syncSeconds seconds"
 
-				# Add the device to the specified AAD group
-				if ($AddToGroup) {
-					$aadGroup = Get-AzureADGroup -Filter "DisplayName eq '$AddToGroup'"
-					if ($aadGroup) {
-						$autopilotDevices | ForEach-Object {
-							$aadDevice = Get-AzureADDevice -ObjectId "deviceid_$($_.azureActiveDirectoryDeviceId)"
-							if ($aadDevice) {
-								Write-Host "Adding device $($_.serialNumber) to group $AddToGroup"
-								Add-AzureADGroupMember -ObjectId $aadGroup.ObjectId -RefObjectId $aadDevice.ObjectId
+				$NotInAutoPilot = $NewAutoPilotDevices | Where-Object { -not $_.AutoPilotStatus -or $_.AutoPilotStatus -notmatch "Complete|ZtdDeviceAlreadyAssigned" }
+
+				while ([bool]$NotInAutoPilot) {
+
+					foreach ($NewDevice in $NewAutoPilotDevices) {
+                        
+						$deviceExists = Get-AutoPilotDeviceBySerial -SerialNumber $NewDevice.serialNumber 
+						
+						if ($deviceExists.deploymentProfileAssignmentStatus -match "assigned") {
+							$NewDevice | Add-Member "AutoPilotStatus" $deviceExists.deploymentProfileAssignmentStatus
+							Write-Host -f Yellow "This device is already registered with AutoPilot: " -NoNewline; Write-Host -f Green "[$($deviceExists.serialNumber) - $($env:COMPUTERNAME)]"
+
+						}
+						else {
+							$device = Get-AutopilotImportedDevice -id $NewDevice.id
+
+							if ($device.state.deviceImportStatus -eq "unknown") {
+
+								$NewDevice | Add-Member "AutoPilotStatus" $device.state.deviceImportStatus
+								Write-Host -f Gray "[$(ReturnElapsed)] Waiting for device to be imported: " -NoNewline; Write-Host -f White "[$($device.serialNumber) | $($env:COMPUTERNAME)]"
 							}
 							else {
-								Write-Error "Unable to find Azure AD device with ID $($_.azureActiveDirectoryDeviceId)"
+								Write-Host -f Gray "[$(ReturnElapsed)] Current device state is: " -NoNewline; Write-Host -f Magenta "[$($device.state.deviceImportStatus)]" -NoNewline; Write-Host -f White "$($device.serialNumber) | $($env:COMPUTERNAME)"
 							}
-						}
-						Write-Host "Added devices to group '$AddToGroup' ($($aadGroup.ObjectId))"
+						}                   
 					}
-					else {
-						Write-Error "Unable to find group $AddToGroup"
+					
+					$NotInAutoPilot = $NewAutoPilotDevices | Where-Object { -not $_.AutoPilotStatus -or $_.AutoPilotStatus -notmatch "Complete|assigned|ZtdDeviceAlreadyAssigned" }
+					if ([bool]$NotInAutoPilot) { 
+						
+						Write-Host -f White "[$(ReturnElapsed)] Wait until the devices have been imported."
+						Start-Sleep -Seconds 30
 					}
 				}
 
-				# Assign the computer name
-				if ($AssignedComputerName -ne "") {
-					$autopilotDevices | ForEach-Object {
-						Set-AutopilotDevice -Id $_.Id -displayName $AssignedComputerName
+				$RegisteredInAutoPilot = $NewAutoPilotDevices | Where-Object { -not $_.AutoPilotStatus -or $_.AutoPilotStatus -eq "Complete" }
+
+				if ([bool]$RegisteredInAutoPilot) {
+
+					$importDuration = (Get-Date) - $importStart
+					$importSeconds = [Math]::Ceiling($importDuration.TotalSeconds)
+					Write-Host "[$(ReturnElapsed)] Devices imported. Elapsed time to complete AutoPilot import: $importSeconds seconds"
+        
+					# Wait for assignment (if specified)
+
+					$Assign = $true
+
+					if ($Assign) {
+						$assignStart = Get-Date
+						$processingCount = 1
+						while ($processingCount -gt 0) {
+							$processingCount = 0
+							$autopilotDevices | ForEach-Object {
+								$device = Get-AutopilotDevice -id $_.id -Expand
+								if (-not ($device.deploymentProfileAssignmentStatus.StartsWith("assigned"))) {
+									$processingCount = $processingCount + 1
+								}
+							}
+							$deviceCount = $autopilotDevices.Length
+							Write-Host "Waiting for $processingCount of $deviceCount to be assigned"
+							if ($processingCount -gt 0) {
+								Start-Sleep 30
+							}    
+						}
+						$assignDuration = (Get-Date) - $assignStart
+						$assignSeconds = [Math]::Ceiling($assignDuration.TotalSeconds)
+						Write-Host "Profiles assigned to all devices. Elapsed time to complete assignment: $assignSeconds seconds"    
+
+						Set-ExecutionPolicySetting -Policy "Default"
+
+						if ($Reboot) {
+
+							RebootComputer -Reboot $Reboot -Ask $false
+						}
 					}
 				}
-
-				# Wait for assignment (if specified)
-				if ($Assign) {
-					$assignStart = Get-Date
-					$processingCount = 1
-					while ($processingCount -gt 0) {
-						$processingCount = 0
-						$autopilotDevices | ForEach-Object {
-							$device = Get-AutopilotDevice -id $_.id -Expand
-							if (-not ($device.deploymentProfileAssignmentStatus.StartsWith("assigned"))) {
-								$processingCount = $processingCount + 1
-							}
-						}
-						$deviceCount = $autopilotDevices.Length
-						Write-Host "Waiting for $processingCount of $deviceCount to be assigned"
-						if ($processingCount -gt 0) {
-							Start-Sleep 30
-						}    
-					}
-					$assignDuration = (Get-Date) - $assignStart
-					$assignSeconds = [Math]::Ceiling($assignDuration.TotalSeconds)
-					Write-Host "Profiles assigned to all devices. Elapsed time to complete assignment: $assignSeconds seconds"    
-
-					Set-ExecutionPolicy -ExecutionPolicy Default -Force
-
-					if ($Reboot) {
-
-						Write-Host -f Green "Your computer will be restarted soon."
-
-						Start-Sleep 15
-
-						Restart-Computer -Force
-					}
+				else {
+					RebootComputer -Reboot $Reboot -Ask $true
 				}
 			}
 			else {
-				Write-Host -f Cyan "Hardware information stored locally only."
+				Write-Host -f Red "Unable to connect to Intune - Hardware information can't be uploaded - information is still stored locally only."
 			}
+
 		}
 	}
-	else {
-		Write-Host -f Red "Hardware information can't be uploaded - information is still stored locally only."
-	}
+}
+else {
+	Write-Host -f Red "Hardware information wasn't uploaded - information is still stored locally."
 }
 
 
-Set-ExecutionPolicy -ExecutionPolicy Default -Force
+
+Set-ExecutionPolicySetting -Policy "Default"
