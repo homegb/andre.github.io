@@ -253,6 +253,28 @@ function SetupModules($Resources) {
 	return $ModuleData
 }
 
+function Get-oAuth-IntuneToken() {
+	$GraphScopes = @( "DeviceManagementServiceConfig.ReadWrite.All" )
+	$AccessTokenExpired = (-not $MsApi.ExpiresOn) -or ( [bool]$MsApi.ExpiresOn.LocalDateTime -and ($MsApi.ExpiresOn.LocalDateTime -lt (Get-Date).ToLocalTime()) )
+
+	if ($AccessTokenExpired) {
+		Write-Host -f Cyan "[$(ReturnElapsed)] Connecting to Intune."
+		try {
+			$global:MsApi = Get-MsalToken -ClientId "d1ddf0e4-d672-4dae-b554-9d5bdfd93547" -TenantId "common" -RedirectUri "urn:ietf:wg:oauth:2.0:oob" -Interactive -Scopes $GraphScopes
+		}
+		catch {
+			$global:MsApi = Get-MsalToken -ClientId "d1ddf0e4-d672-4dae-b554-9d5bdfd93547" -TenantId "common" -RedirectUri "urn:ietf:wg:oauth:2.0:oob" -Interactive -Scopes $GraphScopes
+		}
+	}
+
+	if ([bool]$MsApi.AccessToken) {
+
+		$global:authHeaders = @{ "Content-Type" = "application/json"; "Authorization" = "Bearer " + $MsApi.AccessToken; "ExpiresOn" = $MsApi.ExpiresOn }
+	}
+
+	return $global:MsApi
+}
+
 function Set-ExecutionPolicySetting($Policy) {
 	try {
 		Set-ExecutionPolicy -ExecutionPolicy $Policy -Force -EA SilentlyContinue
@@ -262,8 +284,8 @@ function Set-ExecutionPolicySetting($Policy) {
 }
 
 function ClearPowershellHost() {
-    Clear-Host
-    Write-Host -f Green "[$(DateTimeString)] AutoPilot script V1 - https://andre.github.io`n"
+	Clear-Host
+	Write-Host -f Green "[$(DateTimeString)] AutoPilot script V1 - https://andre.github.io`n"
 }
 
 $ErrorActionPreference = "Stop"
@@ -318,19 +340,10 @@ if ($ConnectToIntune) {
 		$GraphScopes = @( "DeviceManagementServiceConfig.ReadWrite.All" )
 		$AccessTokenExpired = (-not $MsApi.ExpiresOn) -or ( [bool]$MsApi.ExpiresOn.LocalDateTime -and ($MsApi.ExpiresOn.LocalDateTime -lt (Get-Date).ToLocalTime()) )
 
-		if ($AccessTokenExpired) {
-			Write-Host -f Cyan "[$(ReturnElapsed)] Connecting to Intune."
-			try {
-				$global:MsApi = Get-MsalToken -ClientId "d1ddf0e4-d672-4dae-b554-9d5bdfd93547" -TenantId "common" -RedirectUri "urn:ietf:wg:oauth:2.0:oob" -Interactive -Scopes $GraphScopes
-			}
-			catch {
-				$global:MsApi = Get-MsalToken -ClientId "d1ddf0e4-d672-4dae-b554-9d5bdfd93547" -TenantId "common" -RedirectUri "urn:ietf:wg:oauth:2.0:oob" -Interactive -Scopes $GraphScopes
-			}
-		}
+		$global:MsApi = Get-oAuth-IntuneToken
 
 		if ([bool]$MsApi.AccessToken) {
 
-			$global:authHeaders = @{ "Content-Type" = "application/json"; "Authorization" = "Bearer " + $MsApi.AccessToken; "ExpiresOn" = $MsApi.ExpiresOn }
 			$AccessTokenExpired = (-not $MsApi.ExpiresOn) -or ( [bool]$MsApi.ExpiresOn.LocalDateTime -and ($MsApi.ExpiresOn.LocalDateTime -lt (Get-Date).ToLocalTime()) )
 	
 			$TokenDetails = Get-JWTDetails -token $MsApi.AccessToken
