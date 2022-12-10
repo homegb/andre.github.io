@@ -236,7 +236,7 @@ function SetupModules($Resources) {
 			}
 
 			if (Test-Path "$DeployFolder\$Resource\*\$Resource.psd1") {
-				Import-Module -Name "$DeployFolder\$Resource\*\$Resource.psd1" | Out-Null
+				Import-Module -Name "$DeployFolder\$Resource\*\$Resource.psd1" -Force | Out-Null
 				$ModuleData.Success = $true
 				$ModuleData.Paths += "$DeployFolder\$Resource\*\$Resource.psd1"
 				$ModuleData.Names += "$Resource.psd1"
