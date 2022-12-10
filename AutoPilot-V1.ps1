@@ -506,12 +506,12 @@ if ($ConnectToIntune) {
 
 						if ($Reboot) {
 
-							RebootComputer -Reboot $Reboot -Ask $false
+							RebootComputer -Reboot $true -Ask $false
 						}
 					}
 				}
 				else {
-					RebootComputer -Reboot $Reboot -Ask $true
+					RebootComputer -Reboot $true -Ask $true
 				}
 			}
 			else {
