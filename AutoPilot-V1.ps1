@@ -275,6 +275,63 @@ function Get-oAuth-IntuneToken() {
 	return $global:MsApi
 }
 
+function Get-IntuneAzureAdToken {
+
+	try {
+
+		#$GraphScopes = @( "DeviceManagementServiceConfig.ReadWrite.All" )
+		$AccessTokenExpired = (-not $MsApi.ExpiresOn) -or ( [bool]$MsApi.ExpiresOn.LocalDateTime -and ($MsApi.ExpiresOn.LocalDateTime -lt (Get-Date).ToLocalTime()) )
+
+		if ($AccessTokenExpired) {
+
+			$ClientId = "d1ddf0e4-d672-4dae-b554-9d5bdfd93547" #Intune Powershell
+			$RedirectUri = "urn:ietf:wg:oauth:2.0:oob"
+			$Resource = "AzureADPreview"
+          
+			$FindPath = Get-ChildItem "$DeployFolder\$Resource\*\$Resource.psd1" -EA SilentlyContinue
+
+			if ([bool]$FindPath.Directory.FullName) {
+
+				$AzureADModulePath = $FindPath.Directory.FullName
+				$Assemblies = @(
+                (Join-Path -Path $AzureADModulePath -ChildPath "Microsoft.IdentityModel.Clients.ActiveDirectory.dll"),
+                (Join-Path -Path $AzureADModulePath -ChildPath "Microsoft.IdentityModel.Clients.ActiveDirectory.Platform.dll")
+				)
+				Add-Type -Path $Assemblies -ErrorAction Stop
+
+				try {
+					$Authority = "https://login.microsoftonline.com/common/oauth2/token"
+					$ResourceRecipient = "https://graph.microsoft.com"
+
+					# Construct new authentication context
+					$AuthenticationContext = New-Object -TypeName "Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext" -ArgumentList $Authority
+
+					# Construct platform parameters
+					$PlatformParams = New-Object -TypeName "Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters" -ArgumentList "Always" # Arguments: Auto, Always, Never, RefreshSession
+
+					$MsApi = ($AuthenticationContext.AcquireTokenAsync($ResourceRecipient, $ClientID, $RedirectUri, $PlatformParams)).Result
+                
+					if ([bool]$MsApi.AccessToken) {
+
+						$global:authHeaders = @{ "Content-Type" = "application/json"; "Authorization" = "Bearer $($MsApi.AccessToken)"; "ExpiresOn" = $MsApi.ExpiresOn }
+
+						return $MsApi                    
+					}
+				}
+				catch [System.Exception] {
+					Write-Warning -Message "An error occurred when constructing an authentication token: $($_.Exception.Message)" ; break
+				}
+			}
+			else {
+				Write-Host -f Red "Azure AD is not installed."
+			}
+		}
+	}
+	catch [System.Exception] {
+		Write-Warning -Message "Unable to load required assemblies (Azure AD PowerShell module) to construct an authentication token. Error: $($_.Exception.Message)" ; break
+	}
+}
+
 function Set-ExecutionPolicySetting($Policy) {
 	try {
 		Set-ExecutionPolicy -ExecutionPolicy $Policy -Force -EA SilentlyContinue
@@ -302,7 +359,7 @@ $global:Graph = "https://graph.microsoft.com"
 $global:PCName = [System.Net.Dns]::GetHostName()
 
 #Get Available Drives and setup directories
-$DeployFolder = "C:\ProgramData\Deploy\AutoPilot"
+$global:DeployFolder = "C:\ProgramData\Deploy\AutoPilot"
 $ExportFolder = @("C:\HWID")
 New-Item -Type Directory -Path "$DeployFolder" -Force | Out-Null
 
@@ -340,7 +397,8 @@ if ($ConnectToIntune) {
 		$GraphScopes = @( "DeviceManagementServiceConfig.ReadWrite.All" )
 		$AccessTokenExpired = (-not $MsApi.ExpiresOn) -or ( [bool]$MsApi.ExpiresOn.LocalDateTime -and ($MsApi.ExpiresOn.LocalDateTime -lt (Get-Date).ToLocalTime()) )
 
-		$global:MsApi = Get-oAuth-IntuneToken
+		#$global:MsApi = Get-oAuth-IntuneToken
+		$global:MsApi = Get-IntuneAzureAdToken
 
 		if ([bool]$MsApi.AccessToken) {
 
