@@ -16,7 +16,6 @@ Function Add-AutopilotImportedDevice() {
 		[Parameter(ParameterSetName = "Prop2")][Alias("UPN")] $assignedUser = ""
 	)
 
-	# Defining Variables
 	$graphApiVersion = "beta"
 	$Resource = "deviceManagement/importedWindowsAutopilotDeviceIdentities"
 	$Uri = "$Graph/$graphApiVersion/$Resource"
@@ -40,10 +39,10 @@ Function Add-AutopilotImportedDevice() {
 
 	$1 = $serialNumber.Length
 	$2 = $hardwareIdentifier.Length
-	Write-Host -f Magenta "Graph POST $Uri // Serial:($1) | ($2)" #`n$json
+	Write-Host -f Magenta "Graph POST $Uri // Serial:($1) | ($2)`n$json"
 
 	try {
-		Invoke-RestMethod -Uri $Uri -Method POST -Content $json -Headers $authHeaders
+		Invoke-RestMethod -Uri $Uri -Method POST -Headers $authHeaders -ContentType "application/json" -Content $json
 	}
 	catch {
 		Write-Error $_.Exception 
