@@ -275,20 +275,47 @@ function Get-oAuth-IntuneToken() {
 	return $global:MsApi
 }
 
+function Confirm-InstalledModule($ModuleName) {
+
+	$ModulePath = $null
+
+	if ($ModuleName.Length -gt 1) {
+
+		$Paths = @(
+			"$DeployFolder\$ModuleName\*\$ModuleName.psd1"
+			"C:\Program Files\WindowsPowerShell\Modules\$ModuleName\*\$ModuleName.psd1"
+			"$([Environment]::GetFolderPath("MyDocuments"))\WindowsPowerShell\Modules\$ModuleName\*\$ModuleName.psd1"
+		)
+
+		$FindModulePath = Get-ChildItem $Paths -Force -EA SilentlyContinue | Select-Object -First 1
+
+		if (-not $FindModulePath.Directory.FullName) {
+			Install-Module -Name "$ModuleName" -scope AllUsers -Force
+			Import-Module -Name "$ModuleName" -Force
+			$FindModulePath = Get-ChildItem $Paths -Force -EA SilentlyContinue | Select-Object -First 1
+		}
+
+		if ([bool]$FindModulePath.Directory.FullName) {
+			$ModulePath = $FindModulePath.Directory.FullName
+		}
+	}
+
+	return $ModulePath    
+}
+
 function Get-IntuneAzureAdToken {
 
 	try {
 
-		#$GraphScopes = @( "DeviceManagementServiceConfig.ReadWrite.All" )
+		$ClientId = "d1ddf0e4-d672-4dae-b554-9d5bdfd93547" #Intune Powershell
+		$RedirectUri = "urn:ietf:wg:oauth:2.0:oob"
+		$ModuleName = "AzureADPreview"
+			
 		$AccessTokenExpired = (-not $MsApi.ExpiresOn) -or ( [bool]$MsApi.ExpiresOn.LocalDateTime -and ($MsApi.ExpiresOn.LocalDateTime -lt (Get-Date).ToLocalTime()) )
 
 		if ($AccessTokenExpired) {
 
-			$ClientId = "d1ddf0e4-d672-4dae-b554-9d5bdfd93547" #Intune Powershell
-			$RedirectUri = "urn:ietf:wg:oauth:2.0:oob"
-			$Resource = "AzureADPreview"
-          
-			$FindPath = Get-ChildItem "$DeployFolder\$Resource\*\$Resource.psd1" -EA SilentlyContinue
+			$FindPath = Confirm-InstalledModule -ModuleName $ModuleName
 
 			if ([bool]$FindPath.Directory.FullName) {
 
@@ -383,7 +410,7 @@ foreach ($Folder in $ExportFolder) {
 
 # ========== Connect to Intune and upload AutoPilot data ========= #
 Write-Host -f Yellow "[$(ReturnElapsed)] See prompt below:"
-$ContinueScript = Read-Host "Type 'Yes' continue with the script and upload the device data to Intune AutoPilot"
+$ContinueScript = Read-Host "Type 'Yes' to continue with the script and upload the device data to Intune AutoPilot"
 
 #Connect to Intune and upload Autopilot hardware details
 $ConnectToIntune = [bool]($ContinueScript -ieq "Yes")
