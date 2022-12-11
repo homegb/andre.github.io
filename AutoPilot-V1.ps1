@@ -454,7 +454,7 @@ if ($ConnectToIntune) {
 
 							if ($deviceExists.deploymentProfileAssignmentStatus -match "assigned") {
 								$NewDevice | Add-Member "AutoPilotStatus" $deviceExists.deploymentProfileAssignmentStatus -Force
-								Write-Host -f Yellow "This device is already registered with AutoPilot: " -NoNewline; Write-Host -f Green "[$($deviceExists.serialNumber) - $($env:COMPUTERNAME)]"
+								Write-Host -f Yellow "[$(ReturnElapsed)] This device is already registered with AutoPilot: " -NoNewline; Write-Host -f Green "[$($deviceExists.serialNumber) - $($env:COMPUTERNAME)]"
 							}
 						}
 						else {
