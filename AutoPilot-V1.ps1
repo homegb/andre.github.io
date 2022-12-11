@@ -25,7 +25,7 @@ function RebootComputer($Reboot, $Ask) {
 
 	if ($Reboot) {
 
-		Write-Host -f Green "Your computer will be restarted soon."
+		Write-Host -f Green "[$(ReturnElapsed)] Your computer will be restarted soon."
 
 		Start-Sleep 15
 
@@ -493,14 +493,14 @@ if ($ConnectToIntune) {
 								}
 							}
 							$deviceCount = $autopilotDevices.Length
-							Write-Host "Waiting for $processingCount of $deviceCount to be assigned"
+							Write-Host "[$(ReturnElapsed)] Waiting for $processingCount of $deviceCount to be assigned"
 							if ($processingCount -gt 0) {
 								Start-Sleep 30
 							}    
 						}
 						$assignDuration = (Get-Date) - $assignStart
 						$assignSeconds = [Math]::Ceiling($assignDuration.TotalSeconds)
-						Write-Host "Profiles assigned to all devices. Elapsed time to complete assignment: $assignSeconds seconds"    
+						Write-Host "[$(ReturnElapsed)] Profiles assigned to all devices. Elapsed time to complete assignment: $assignSeconds seconds"    
 
 						Set-ExecutionPolicySetting -Policy "Default"
 
@@ -515,14 +515,14 @@ if ($ConnectToIntune) {
 				}
 			}
 			else {
-				Write-Host -f Red "Unable to connect to Intune - Hardware information can't be uploaded - information is still stored locally only."
+				Write-Host -f Red "[$(ReturnElapsed)] Unable to connect to Intune - Hardware information can't be uploaded - information is still stored locally only."
 			}
 
 		}
 	}
 }
 else {
-	Write-Host -f Red "Hardware information wasn't uploaded - information is still stored locally."
+	Write-Host -f Red "[$(ReturnElapsed)] Hardware information wasn't uploaded - information is still stored locally."
 }
 
 
