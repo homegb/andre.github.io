@@ -440,85 +440,86 @@ if ($ConnectToIntune) {
 
 					foreach ($NewDevice in $NewAutoPilotDevices) {
                         
-						$deviceExists = Get-AutoPilotDeviceBySerial -SerialNumber $NewDevice.serialNumber 
 						
-						if ($deviceExists.deploymentProfileAssignmentStatus -match "assigned") {
-							$NewDevice | Add-Member "AutoPilotStatus" $deviceExists.deploymentProfileAssignmentStatus -Force
-							Write-Host -f Yellow "This device is already registered with AutoPilot: " -NoNewline; Write-Host -f Green "[$($deviceExists.serialNumber) - $($env:COMPUTERNAME)]"
+						$device = Get-AutopilotImportedDevice -id $NewDevice.id
 
+						if ($device.state.deviceImportStatus -eq "unknown") {
+
+							$NewDevice | Add-Member "AutoPilotStatus" $device.state.deviceImportStatus -Force
+							Write-Host -f Gray "[$(ReturnElapsed)] Waiting for device to be imported: " -NoNewline; Write-Host -f White "[$($device.serialNumber) | $($env:COMPUTERNAME)]"
+						}
+						elseif ($device.state.deviceErrorName -eq "ZtdDeviceAlreadyAssigned") {
+
+							$deviceExists = Get-AutoPilotDeviceBySerial -SerialNumber $NewDevice.serialNumber 
+
+							if ($deviceExists.deploymentProfileAssignmentStatus -match "assigned") {
+								$NewDevice | Add-Member "AutoPilotStatus" $deviceExists.deploymentProfileAssignmentStatus -Force
+								Write-Host -f Yellow "This device is already registered with AutoPilot: " -NoNewline; Write-Host -f Green "[$($deviceExists.serialNumber) - $($env:COMPUTERNAME)]"
+							}
 						}
 						else {
-							$device = Get-AutopilotImportedDevice -id $NewDevice.id
-
-							if ($device.state.deviceImportStatus -eq "unknown") {
-
-								$NewDevice | Add-Member "AutoPilotStatus" $device.state.deviceImportStatus -Force
-								Write-Host -f Gray "[$(ReturnElapsed)] Waiting for device to be imported: " -NoNewline; Write-Host -f White "[$($device.serialNumber) | $($env:COMPUTERNAME)]"
-							}
-							else {
-								Write-Host -f Gray "[$(ReturnElapsed)] Current device state is: " -NoNewline; Write-Host -f Magenta "[$($device.state.deviceImportStatus)]" -NoNewline; Write-Host -f White "$($device.serialNumber) | $($env:COMPUTERNAME)"
-							}
-						}                   
+							Write-Host -f Gray "[$(ReturnElapsed)] Current device state is: " -NoNewline; Write-Host -f Magenta "[$($device.state.deviceImportStatus)]" -NoNewline; Write-Host -f White "$($device.serialNumber) | $($env:COMPUTERNAME)"
+						}
 					}
+				}
 					
-					$NotInAutoPilot = $NewAutoPilotDevices | Where-Object { -not $_.AutoPilotStatus -or $_.AutoPilotStatus -notmatch "Complete|assigned|ZtdDeviceAlreadyAssigned" }
-					if ([bool]$NotInAutoPilot) { 
+				$NotInAutoPilot = $NewAutoPilotDevices | Where-Object { -not $_.AutoPilotStatus -or $_.AutoPilotStatus -notmatch "Complete|assigned|ZtdDeviceAlreadyAssigned" }
+				if ([bool]$NotInAutoPilot) { 
 						
-						Write-Host -f White "[$(ReturnElapsed)] Wait until the devices have been imported."
-						Start-Sleep -Seconds 30
-					}
+					Write-Host -f White "[$(ReturnElapsed)] Wait until the devices have been imported."
+					Start-Sleep -Seconds 30
 				}
+			}
 
-				$RegisteredInAutoPilot = $NewAutoPilotDevices | Where-Object { -not $_.AutoPilotStatus -or $_.AutoPilotStatus -eq "Complete" }
+			$RegisteredInAutoPilot = $NewAutoPilotDevices | Where-Object { -not $_.AutoPilotStatus -or $_.AutoPilotStatus -eq "Complete" }
 
-				if ([bool]$RegisteredInAutoPilot) {
+			if ([bool]$RegisteredInAutoPilot) {
 
-					$importDuration = (Get-Date) - $importStart
-					$importSeconds = [Math]::Ceiling($importDuration.TotalSeconds)
-					Write-Host "[$(ReturnElapsed)] Devices imported. Elapsed time to complete AutoPilot import: $importSeconds seconds"
+				$importDuration = (Get-Date) - $importStart
+				$importSeconds = [Math]::Ceiling($importDuration.TotalSeconds)
+				Write-Host "[$(ReturnElapsed)] Devices imported. Elapsed time to complete AutoPilot import: $importSeconds seconds"
         
-					# Wait for assignment (if specified)
+				# Wait for assignment (if specified)
 
-					$Assign = $true
+				$Assign = $true
 
-					if ($Assign) {
-						$assignStart = Get-Date
-						$processingCount = 1
-						while ($processingCount -gt 0) {
-							$processingCount = 0
-							$autopilotDevices | ForEach-Object {
-								$device = Get-AutopilotDevice -id $_.id -Expand
-								if (-not ($device.deploymentProfileAssignmentStatus.StartsWith("assigned"))) {
-									$processingCount = $processingCount + 1
-								}
+				if ($Assign) {
+					$assignStart = Get-Date
+					$processingCount = 1
+					while ($processingCount -gt 0) {
+						$processingCount = 0
+						$autopilotDevices | ForEach-Object {
+							$device = Get-AutopilotDevice -id $_.id -Expand
+							if (-not ($device.deploymentProfileAssignmentStatus.StartsWith("assigned"))) {
+								$processingCount = $processingCount + 1
 							}
-							$deviceCount = $autopilotDevices.Length
-							Write-Host "[$(ReturnElapsed)] Waiting for $processingCount of $deviceCount to be assigned"
-							if ($processingCount -gt 0) {
-								Start-Sleep 30
-							}    
 						}
-						$assignDuration = (Get-Date) - $assignStart
-						$assignSeconds = [Math]::Ceiling($assignDuration.TotalSeconds)
-						Write-Host "[$(ReturnElapsed)] Profiles assigned to all devices. Elapsed time to complete assignment: $assignSeconds seconds"    
-
-						Set-ExecutionPolicySetting -Policy "Default"
-
-						if ($Reboot) {
-
-							RebootComputer -Reboot $true -Ask $false
-						}
+						$deviceCount = $autopilotDevices.Length
+						Write-Host "[$(ReturnElapsed)] Waiting for $processingCount of $deviceCount to be assigned"
+						if ($processingCount -gt 0) {
+							Start-Sleep 30
+						}    
 					}
-				}
-				else {
-					RebootComputer -Reboot $true -Ask $true
+					$assignDuration = (Get-Date) - $assignStart
+					$assignSeconds = [Math]::Ceiling($assignDuration.TotalSeconds)
+					Write-Host "[$(ReturnElapsed)] Profiles assigned to all devices. Elapsed time to complete assignment: $assignSeconds seconds"    
+
+					Set-ExecutionPolicySetting -Policy "Default"
+
+					if ($Reboot) {
+
+						RebootComputer -Reboot $true -Ask $false
+					}
 				}
 			}
 			else {
-				Write-Host -f Red "[$(ReturnElapsed)] Unable to connect to Intune - Hardware information can't be uploaded - information is still stored locally only."
+				RebootComputer -Reboot $true -Ask $true
 			}
-
 		}
+		else {
+			Write-Host -f Red "[$(ReturnElapsed)] Unable to connect to Intune - Hardware information can't be uploaded - information is still stored locally only."
+		}
+
 	}
 }
 else {
